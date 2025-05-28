@@ -9,6 +9,8 @@ from rest_framework import serializers
 
 from control.models import Notification, ChildCallRecording
 
+class PasswordCheckSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, required=True)
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,14 +52,36 @@ class BaseUserShortSerializer(serializers.ModelSerializer):
         return getattr(obj.user, "id", None)
 
 class ChildShortSerializer(BaseUserShortSerializer):
+    num_unread_notifications = serializers.SerializerMethodField(read_only=True)
+    num_unread_voice_calls = serializers.SerializerMethodField(read_only=True)
+    num_unread_video_calls = serializers.SerializerMethodField(read_only=True)
+
     class Meta(BaseUserShortSerializer.Meta):
+        fields = [*BaseUserShortSerializer.Meta.fields, "phone_locked",
+         'num_unread_notifications',
+         'num_unread_voice_calls', 
+         'num_unread_video_calls']
         model = Child
+
+    def get_num_unread_notifications(self, obj):
+        # Example: count notifications where 'read' is False
+        return Notification.objects.filter(child__user=obj.user, is_deleted=False, is_read=False).count()
+
+    def get_num_unread_voice_calls(self, obj):
+        # Example: count unread voice calls
+        return ChildCallRecording.objects.filter(child__user=obj.user, is_deleted=False,  recording_type='voice',is_read=False).count()
+
+    def get_num_unread_video_calls(self, obj):
+        # Example: count unread video calls
+        return ChildCallRecording.objects.filter(child__user=obj.user, is_deleted=False, recording_type='video', is_read=False).count()
 
 class ParentShortSerializer(BaseUserShortSerializer):
     class Meta(BaseUserShortSerializer.Meta):
-        fields = [*BaseUserShortSerializer.Meta.fields, "qr_image"]
+        fields = [*BaseUserShortSerializer.Meta.fields, "qr_image", ]
         model = Parent
 
+    
+    
 class ChildProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     num_unread_notifications = serializers.SerializerMethodField(read_only=True)
